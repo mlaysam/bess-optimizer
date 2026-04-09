@@ -1,0 +1,106 @@
+{
+  "name": "bess-optimizer",
+  "version": "1.0.0",
+  "description": "Battery Energy Storage System Sizing & Financial Optimizer",
+  "author": {
+    "name": "Samson Mlay",
+    "email": "mlaysamson24@outlook.com"
+  },
+  "homepage": "https://github.com/mlaysam/bess-optimizer",
+  "license": "MIT",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev":           "concurrently \"vite\" \"wait-on http://localhost:5173 && electron . --no-sandbox\"",
+    "build":         "vite build",
+    "dist:linux":    "vite build && electron-builder --linux dir deb",
+    "dist:win":      "vite build && electron-builder --win nsis portable",
+    "dist:mac":      "vite build && electron-builder --mac dmg",
+    "dist:all":      "vite build && electron-builder --linux dir deb --win nsis portable --mac dmg",
+    "dist:appimage": "vite build && electron-builder --linux AppImage",
+    "preview":       "vite preview"
+  },
+  "build": {
+    "appId": "com.bess.optimizer",
+    "productName": "BESS Optimizer",
+    "copyright": "Copyright © 2026 BESS Optimizer Contributors",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+
+    "linux": {
+      "target": ["dir", "deb"],
+      "icon": "resources/icon.png",
+      "category": "Science",
+      "maintainer": "Samson Mlay <mlaysamson24@outlook.com>",
+      "executableArgs": ["--no-sandbox"],
+      "desktop": {
+        "Name": "BESS Optimizer",
+        "Comment": "Battery Energy Storage System Sizing & Financial Optimizer",
+        "Categories": "Science;Engineering;"
+      }
+    },
+
+    "win": {
+      "target": [
+        { "target": "nsis",     "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "resources/icon.ico"
+    },
+
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] }
+      ],
+      "icon": "resources/icon.icns",
+      "category": "public.app-category.productivity",
+      "darkModeSupport": true,
+      "gatekeeperAssess": false
+    },
+
+    "deb": {
+      "artifactName": "BESS-Optimizer-${version}.deb"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "BESS Optimizer",
+      "artifactName": "BESS-Optimizer-${version}-Setup.exe"
+    },
+    "portable": {
+      "artifactName": "BESS-Optimizer-${version}-Portable.exe"
+    },
+    "dmg": {
+      "artifactName": "BESS-Optimizer-${version}.dmg",
+      "title": "BESS Optimizer ${version}",
+      "background": null,
+      "window": { "width": 540, "height": 380 },
+      "contents": [
+        { "x": 150, "y": 190, "type": "file" },
+        { "x": 390, "y": 190, "type": "link", "path": "/Applications" }
+      ]
+    },
+    "appImage": {
+      "artifactName": "BESS-Optimizer-${version}.AppImage"
+    }
+  },
+  "dependencies": {
+    "recharts": "^2.12.7",
+    "react":    "^18.3.1",
+    "react-dom":"^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently":         "^9.1.0",
+    "electron":             "^32.2.5",
+    "electron-builder":     "^25.1.8",
+    "vite":                 "^5.4.10",
+    "wait-on":              "^8.0.1"
+  }
+}

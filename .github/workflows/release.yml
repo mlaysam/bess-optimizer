@@ -1,0 +1,176 @@
+name: Build & Release
+
+# Trigger: push a version tag  →  git tag v1.0.1 && git push --tags
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+
+  # ── Linux (.deb + unpacked zip) ───────────────────────────────────────────
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate icons
+        run: python3 make_icon.py
+
+      - name: Build Linux packages
+        run: npm run dist:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Zip unpacked dir
+        run: |
+          cd dist-electron
+          zip -r "BESS-Optimizer-${{ github.ref_name }}-linux-unpacked.zip" linux-unpacked/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-builds
+          retention-days: 1
+          path: |
+            dist-electron/*.deb
+            dist-electron/*-linux-unpacked.zip
+
+  # ── Windows (NSIS installer + portable .exe) ──────────────────────────────
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate icons
+        run: python make_icon.py
+
+      - name: Build Windows packages
+        run: npm run dist:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-builds
+          retention-days: 1
+          path: dist-electron/*.exe
+
+  # ── macOS (DMG — Intel x64 + Apple Silicon arm64) ─────────────────────────
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate icons
+        run: python3 make_icon.py
+
+      - name: Build macOS DMG
+        run: npm run dist:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # No code signing — users bypass with right-click → Open
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-builds
+          retention-days: 1
+          path: dist-electron/*.dmg
+
+  # ── Publish GitHub Release with all binaries ──────────────────────────────
+  release:
+    needs: [build-linux, build-windows, build-mac]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-builds
+          path: release-assets/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-builds
+          path: release-assets/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: mac-builds
+          path: release-assets/
+
+      - name: List assets
+        run: ls -lh release-assets/
+
+      - name: Extract version
+        id: ver
+        run: echo "V=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: "BESS Optimizer v${{ steps.ver.outputs.V }}"
+          body: |
+            ## BESS Optimizer ${{ github.ref_name }}
+
+            ### Downloads
+
+            | Platform | File | Notes |
+            |----------|------|-------|
+            | 🪟 Windows | `BESS-Optimizer-*-Setup.exe` | Installer — Start Menu + Desktop shortcut |
+            | 🪟 Windows | `BESS-Optimizer-*-Portable.exe` | No install — run from anywhere |
+            | 🐧 Linux | `BESS-Optimizer-*.deb` | Ubuntu / Debian |
+            | 🐧 Linux | `BESS-Optimizer-*-linux-unpacked.zip` | Any distro |
+            | 🍎 macOS | `BESS-Optimizer-*.dmg` | Intel + Apple Silicon (Universal) |
+
+            ### Quick start
+
+            **Windows** — double-click `Setup.exe` or run `Portable.exe` directly.
+
+            **Linux (.deb)**
+            ```bash
+            sudo dpkg -i BESS-Optimizer-*.deb
+            bess-optimizer          # no --no-sandbox needed
+            ```
+
+            **Linux (unpacked)**
+            ```bash
+            unzip BESS-Optimizer-*-linux-unpacked.zip
+            ./linux-unpacked/bess-optimizer
+            ```
+
+            **macOS**
+            1. Open `BESS-Optimizer-*.dmg`
+            2. Drag **BESS Optimizer** to **Applications**
+            3. First launch: right-click the app → **Open** → **Open** (bypasses Gatekeeper)
+
+          files: release-assets/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

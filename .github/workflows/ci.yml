@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'LICENSE', 'CHANGELOG.md']
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-check:
+    name: Build check (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate icons (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: python3 make_icon.py
+
+      - name: Generate icons (Windows)
+        if: runner.os == 'Windows'
+        run: python make_icon.py
+
+      - name: Vite build
+        run: npm run build
+
+      - name: electron-builder dir (Linux)
+        if: runner.os == 'Linux'
+        run: npx electron-builder --linux dir
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: electron-builder dir (Windows)
+        if: runner.os == 'Windows'
+        run: npx electron-builder --win dir
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: electron-builder dir (macOS)
+        if: runner.os == 'macOS'
+        run: npx electron-builder --mac dir
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
